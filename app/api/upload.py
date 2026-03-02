@@ -2,6 +2,7 @@ from fastapi import APIRouter, UploadFile, File
 import os
 import shutil
 import zipfile
+from app.services.parser import parse_python_files
 
 router = APIRouter()
 
@@ -23,4 +24,10 @@ async def upload_codebase(file: UploadFile = File(...)):
     with zipfile.ZipFile(file_path, 'r') as zip_ref:
         zip_ref.extractall(EXTRACT_DIR)
 
-    return {"message": "File uploaded and extracted successfully"}
+    # 🔥 Parse extracted Python files
+    parsed = parse_python_files(EXTRACT_DIR)
+
+    return {
+        "message": "File uploaded, extracted and parsed successfully",
+        "functions_found": len(parsed)
+    }
