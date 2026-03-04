@@ -26,9 +26,11 @@ def add_embeddings(embeddings, metadata):
 
 
 def search(query_vector, top_k=3):
-    """
-    Find most similar code snippets
-    """
+
+    import numpy as np
+
+    if index.ntotal == 0:
+        return []
 
     query = np.array([query_vector]).astype("float32")
 
@@ -37,7 +39,7 @@ def search(query_vector, top_k=3):
     results = []
 
     for idx in indices[0]:
-        if idx < len(metadata_store):
+        if idx != -1 and idx < len(metadata_store):
             results.append(metadata_store[idx])
 
     return results
