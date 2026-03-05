@@ -7,6 +7,7 @@ from app.services.llm_service import generate_response
 
 router = APIRouter()
 
+
 class QueryRequest(BaseModel):
     question: str
     top_k: int = 3
@@ -15,16 +16,21 @@ class QueryRequest(BaseModel):
 @router.post("/query")
 async def query_codebase(request: QueryRequest):
 
-    # Convert question → embedding
+    # Convert user question → embedding
     query_vector = generate_embedding(
-    f"Explain the following code: {request.question}"
-)
+        f"Explain the following function: {request.question}"
+    )
 
-    # Retrieve relevant functions
+    # Retrieve relevant functions from FAISS
     retrieved = search(query_vector, request.top_k)
-    query_vector = generate_embedding(
-    f"Explain the following code: {request.question}"
-)
+
+    # Safety check if nothing found
+    if not retrieved:
+        return {
+            "question": request.question,
+            "retrieved_functions": [],
+            "answer": "No relevant code found in the uploaded codebase."
+        }
 
     # Generate explanation using LLM
     answer = generate_response(request.question, retrieved)
