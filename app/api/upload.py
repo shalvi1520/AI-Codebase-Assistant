@@ -21,19 +21,19 @@ os.makedirs(EXTRACT_DIR, exist_ok=True)
 @router.post("/upload")
 async def upload_codebase(file: UploadFile = File(...)):
 
-    # Save uploaded ZIP
+    # Save uploaded ZIP file
     file_path = os.path.join(UPLOAD_DIR, file.filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Clear previous extracted code
+    # Clear previously extracted code
     if os.path.exists(EXTRACT_DIR):
         shutil.rmtree(EXTRACT_DIR)
 
     os.makedirs(EXTRACT_DIR, exist_ok=True)
 
-    # Extract ZIP
+    # Extract ZIP file
     with zipfile.ZipFile(file_path, "r") as zip_ref:
         zip_ref.extractall(EXTRACT_DIR)
 
@@ -43,9 +43,17 @@ async def upload_codebase(file: UploadFile = File(...)):
     embeddings = []
     metadata = []
 
-    # Generate embeddings for each function
+    # Generate embeddings for each parsed function
     for item in parsed:
-        text_for_embedding = item["function_name"] + " " + item["code"]
+
+        # Create better embedding text
+        text_for_embedding = f"""
+Function Name: {item['function_name']}
+
+Code:
+{item['code']}
+"""
+
         vector = generate_embedding(text_for_embedding)
 
         embeddings.append(vector)
@@ -56,7 +64,7 @@ async def upload_codebase(file: UploadFile = File(...)):
             "code": item["code"]
         })
 
-    # Store embeddings in FAISS vector database
+    # Store embeddings in FAISS vector store
     add_embeddings(embeddings, metadata)
 
     return {
