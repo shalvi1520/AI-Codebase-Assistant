@@ -16,10 +16,15 @@ class QueryRequest(BaseModel):
 async def query_codebase(request: QueryRequest):
 
     # Convert question → embedding
-    query_vector = generate_embedding(request.question)
+    query_vector = generate_embedding(
+    f"Explain the following code: {request.question}"
+)
 
     # Retrieve relevant functions
     retrieved = search(query_vector, request.top_k)
+    query_vector = generate_embedding(
+    f"Explain the following code: {request.question}"
+)
 
     # Generate explanation using LLM
     answer = generate_response(request.question, retrieved)

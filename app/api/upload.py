@@ -45,7 +45,8 @@ async def upload_codebase(file: UploadFile = File(...)):
 
     # Generate embeddings for each function
     for item in parsed:
-        vector = generate_embedding(item["code"])
+        text_for_embedding = item["function_name"] + " " + item["code"]
+        vector = generate_embedding(text_for_embedding)
 
         embeddings.append(vector)
 
