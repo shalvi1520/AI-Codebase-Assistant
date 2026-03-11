@@ -1,4 +1,7 @@
-venv/
+metadata.pkl
+vector_index.faiss
+uploads/
+extracted/
 __pycache__/
-.env
 *.pyc
+.env
