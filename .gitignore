@@ -1,3 +1,4 @@
+venv/
 metadata.pkl
 vector_index.faiss
 uploads/
