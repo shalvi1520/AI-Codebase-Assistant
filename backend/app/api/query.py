@@ -9,6 +9,7 @@ router = APIRouter()
 
 
 class QueryRequest(BaseModel):
+    repo_name: str
     question: str
     top_k: int = 3
 
@@ -22,7 +23,7 @@ async def query_codebase(request: QueryRequest):
     )
 
     # Retrieve relevant functions from FAISS
-    retrieved = search(query_vector, request.top_k)
+    retrieved = search(request.repo_name, query_vector, request.top_k)
 
     # Safety check if nothing found
     if not retrieved:

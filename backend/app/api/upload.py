@@ -13,7 +13,6 @@ router = APIRouter()
 UPLOAD_DIR = "uploads"
 EXTRACT_DIR = "extracted"
 
-# Create folders if they don't exist
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(EXTRACT_DIR, exist_ok=True)
 
@@ -21,33 +20,31 @@ os.makedirs(EXTRACT_DIR, exist_ok=True)
 @router.post("/upload")
 async def upload_codebase(file: UploadFile = File(...)):
 
-    # Save uploaded ZIP file
     file_path = os.path.join(UPLOAD_DIR, file.filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # Clear previously extracted code
+    # repo name
+    repo_name = file.filename.replace(".zip", "")
+
     if os.path.exists(EXTRACT_DIR):
         shutil.rmtree(EXTRACT_DIR)
 
     os.makedirs(EXTRACT_DIR, exist_ok=True)
 
-    # Extract ZIP file
     with zipfile.ZipFile(file_path, "r") as zip_ref:
         zip_ref.extractall(EXTRACT_DIR)
 
-    # Parse Python files
     parsed = parse_python_files(EXTRACT_DIR)
 
     embeddings = []
     metadata = []
 
-    # Generate embeddings for each parsed function
     for item in parsed:
 
-        # Create better embedding text
         text_for_embedding = f"""
+File: {item['file']}
 Function Name: {item['function_name']}
 
 Code:
@@ -64,8 +61,7 @@ Code:
             "code": item["code"]
         })
 
-    # Store embeddings in FAISS vector store
-    add_embeddings(embeddings, metadata)
+    add_embeddings(repo_name, embeddings, metadata)
 
     return {
         "message": "Upload, parsing, embedding and indexing completed",

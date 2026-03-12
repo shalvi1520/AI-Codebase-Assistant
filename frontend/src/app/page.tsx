@@ -348,7 +348,15 @@ function CodePanel({ file, onClose }: { file: string; onClose: ()=>void }) {
 /* ══════════════════════════════════════════════════════════════
    CHAT WIDGET
 ══════════════════════════════════════════════════════════════ */
-function ChatWidget({ active, onViewCode }: { active: boolean; onViewCode: (f:string)=>void }) {
+function ChatWidget({
+  active,
+  activeRepo,
+  onViewCode
+}: {
+  active: boolean
+  activeRepo: Repo | null
+  onViewCode: (f: string) => void
+}) {
   const [open, setOpen]   = useState(false);
   const [msgs, setMsgs]   = useState<Msg[]>([]);
   const [inp,  setInp]    = useState("");
@@ -372,8 +380,10 @@ function ChatWidget({ active, onViewCode }: { active: boolean; onViewCode: (f:st
   setBusy(true);
 
   try {
+    if (!activeRepo) return;
 
-    const response = await queryCodebase(q,3);
+    
+    const response = await queryCodebase(q, activeRepo.name.replace(".zip",""), 3);
 
     /*
     backend response example:
@@ -1065,7 +1075,8 @@ export default function Home() {
         <Hero activeRepo={activeRepo} onUpload={handleUpload}/>
       </div>
       {codeFile && <CodePanel file={codeFile} onClose={()=>setCodeFile(null)}/>}
-      <ChatWidget active={!!activeRepo} onViewCode={f=>setCodeFile(f)}/>
+      <ChatWidget active={!!activeRepo} activeRepo={activeRepo} onViewCode={f => setCodeFile(f)}/>
+
       <Toasts list={toasts} remove={id=>setToasts(t=>t.filter(x=>x.id!==id))}/>
     </>
   );

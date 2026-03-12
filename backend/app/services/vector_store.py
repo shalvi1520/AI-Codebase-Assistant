@@ -4,25 +4,32 @@ import os
 import pickle
 
 DIMENSION = 768
+VECTOR_DB_DIR = "vector_dbs"
 
-INDEX_FILE = "vector_index.faiss"
-METADATA_FILE = "metadata.pkl"
-
-# Load index if it exists
-if os.path.exists(INDEX_FILE):
-    index = faiss.read_index(INDEX_FILE)
-else:
-    index = faiss.IndexFlatL2(DIMENSION)
-
-# Load metadata if it exists
-if os.path.exists(METADATA_FILE):
-    with open(METADATA_FILE, "rb") as f:
-        metadata_store = pickle.load(f)
-else:
-    metadata_store = []
+os.makedirs(VECTOR_DB_DIR, exist_ok=True)
 
 
-def add_embeddings(embeddings, metadata):
+def get_paths(repo_name):
+    index_path = os.path.join(VECTOR_DB_DIR, f"{repo_name}.faiss")
+    meta_path = os.path.join(VECTOR_DB_DIR, f"{repo_name}.pkl")
+    return index_path, meta_path
+
+
+def add_embeddings(repo_name, embeddings, metadata):
+
+    index_path, meta_path = get_paths(repo_name)
+
+    # Load existing index if it exists
+    if os.path.exists(index_path):
+        index = faiss.read_index(index_path)
+    else:
+        index = faiss.IndexFlatL2(DIMENSION)
+
+    if os.path.exists(meta_path):
+        with open(meta_path, "rb") as f:
+            metadata_store = pickle.load(f)
+    else:
+        metadata_store = []
 
     vectors = np.array(embeddings).astype("float32")
 
@@ -33,18 +40,25 @@ def add_embeddings(embeddings, metadata):
 
     metadata_store.extend(metadata)
 
-    # Save FAISS index
-    faiss.write_index(index, INDEX_FILE)
+    # Save index
+    faiss.write_index(index, index_path)
 
     # Save metadata
-    with open(METADATA_FILE, "wb") as f:
+    with open(meta_path, "wb") as f:
         pickle.dump(metadata_store, f)
 
 
-def search(query_vector, top_k=3):
+def search(repo_name, query_vector, top_k=3):
 
-    if index.ntotal == 0:
+    index_path, meta_path = get_paths(repo_name)
+
+    if not os.path.exists(index_path):
         return []
+
+    index = faiss.read_index(index_path)
+
+    with open(meta_path, "rb") as f:
+        metadata_store = pickle.load(f)
 
     query = np.array([query_vector]).astype("float32")
 

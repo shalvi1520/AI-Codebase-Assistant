@@ -47,11 +47,17 @@ export const uploadCodebase = async (file: File) => {
 /*
 Ask question about codebase
 Calls FastAPI POST /query
+Now includes repo_name so backend searches the correct repo
 */
 
-export const queryCodebase = async (question: string, topK: number = 3) => {
+export const queryCodebase = async (
+  question: string,
+  repoName: string,
+  topK: number = 3
+) => {
   try {
     const response = await client.post("/query", {
+      repo_name: repoName,
       question: question,
       top_k: topK,
     });
