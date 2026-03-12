@@ -36,7 +36,8 @@ async def query_codebase(request: QueryRequest):
     answer = generate_response(request.question, retrieved)
 
     return {
-        "question": request.question,
-        "retrieved_functions": retrieved,
-        "answer": answer
-    }
+    "question": request.question,
+    "retrieved_functions": retrieved,
+    "answer": answer,
+    "file": retrieved[0]["file"] if len(retrieved) > 0 else None
+}
