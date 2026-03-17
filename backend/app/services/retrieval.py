@@ -1,6 +1,9 @@
 from app.services.embedding import generate_embedding
 from app.services.vector_store import search
 
+import os
+import pickle
+
 
 def retrieve_code(repo_name: str, query: str, top_k: int = 3):
     """
@@ -19,8 +22,26 @@ def retrieve_code(repo_name: str, query: str, top_k: int = 3):
         formatted.append({
             "code": r.get("code"),
             "file": r.get("file"),
+            "function_name": r.get("function_name"),
             "start_line": r.get("start_line", 1),
             "end_line": r.get("end_line", 1)
         })
 
     return formatted
+
+
+# 🔥 NEW FUNCTION (VERY IMPORTANT)
+def get_all_functions(repo_name: str):
+    """
+    Get ALL functions from metadata (not FAISS)
+    """
+
+    meta_path = os.path.join("vector_dbs", f"{repo_name}.pkl")
+
+    if not os.path.exists(meta_path):
+        return []
+
+    with open(meta_path, "rb") as f:
+        metadata_store = pickle.load(f)
+
+    return metadata_store
