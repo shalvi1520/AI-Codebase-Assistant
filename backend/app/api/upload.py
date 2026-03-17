@@ -20,6 +20,9 @@ os.makedirs(EXTRACT_DIR, exist_ok=True)
 @router.post("/upload")
 async def upload_codebase(file: UploadFile = File(...)):
 
+    # -----------------------------
+    # SAVE UPLOADED ZIP
+    # -----------------------------
     file_path = os.path.join(UPLOAD_DIR, file.filename)
 
     with open(file_path, "wb") as buffer:
@@ -27,19 +30,34 @@ async def upload_codebase(file: UploadFile = File(...)):
 
     repo_name = file.filename.replace(".zip", "")
 
-    if os.path.exists(EXTRACT_DIR):
-        shutil.rmtree(EXTRACT_DIR)
+    # -----------------------------
+    # CREATE REPO-SPECIFIC FOLDER
+    # -----------------------------
+    repo_extract_path = os.path.join(EXTRACT_DIR, repo_name)
 
-    os.makedirs(EXTRACT_DIR, exist_ok=True)
+    # Delete only this repo folder (NOT entire extracted)
+    if os.path.exists(repo_extract_path):
+        shutil.rmtree(repo_extract_path)
 
+    os.makedirs(repo_extract_path, exist_ok=True)
+
+    # -----------------------------
+    # EXTRACT ZIP INTO REPO FOLDER
+    # -----------------------------
     with zipfile.ZipFile(file_path, "r") as zip_ref:
-        zip_ref.extractall(EXTRACT_DIR)
+        zip_ref.extractall(repo_extract_path)
 
-    parsed = parse_python_files(EXTRACT_DIR)
+    # -----------------------------
+    # PARSE FILES FROM CORRECT PATH
+    # -----------------------------
+    parsed = parse_python_files(repo_extract_path)
 
     embeddings = []
     metadata = []
 
+    # -----------------------------
+    # CREATE EMBEDDINGS
+    # -----------------------------
     for item in parsed:
 
         text_for_embedding = f"""
@@ -62,8 +80,14 @@ Code:
             "end_line": item["end_line"]
         })
 
+    # -----------------------------
+    # STORE IN VECTOR DB
+    # -----------------------------
     add_embeddings(repo_name, embeddings, metadata)
 
+    # -----------------------------
+    # RESPONSE
+    # -----------------------------
     return {
         "message": "Upload, parsing, embedding and indexing completed",
         "functions_found": len(parsed),

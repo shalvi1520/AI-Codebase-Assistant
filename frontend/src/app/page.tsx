@@ -1152,69 +1152,139 @@ function Hero({ activeRepo, onUpload }: { activeRepo: Repo|null; onUpload: (info
    ROOT
 ══════════════════════════════════════════════════════════════ */
 export default function Home() {
-  const [history,    setHistory]    = useState<Repo[]>(INIT_HIST);
-  const [activeRepo, setActiveRepo] = useState<Repo|null>(null);
-  const [codeFile,   setCodeFile]   = useState<string|null>(null);
-  const [highlight, setHighlight] = useState<{start:number,end:number} | null>(null);
+  const [history, setHistory] = useState<Repo[]>(INIT_HIST);
+  const [activeRepo, setActiveRepo] = useState<Repo | null>(null);
+  const [codeFile, setCodeFile] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState<{ start: number; end: number } | null>(null);
   const [graphData, setGraphData] = useState<any>(null);
-  const [toasts,     setToasts]     = useState<Toast[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [rightPanel, setRightPanel] = useState<"chat" | "code" | "graph" | null>(null);
 
-  const addToast = useCallback((message: string, type: Toast["type"]="info") => {
-    const id = Date.now();
-    setToasts(t=>[...t,{id,message,type}]);
-    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),5000);
-  },[]);
+  const addToast = useCallback(
+    (message: string, type: Toast["type"] = "info") => {
+      const id = Date.now();
+      setToasts((t) => [...t, { id, message, type }]);
+      setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 5000);
+    },
+    []
+  );
 
-  const handleUpload = useCallback((info: Omit<Repo,"id">) => {
-    const r: Repo = {id:Date.now(),...info};
-    setHistory(h=>[r,...h]);
-    setActiveRepo(r);
-    addToast(`✓ Indexed ${info.fns} functions from ${info.files} files`,"success");
-  },[addToast]);
+  const handleUpload = useCallback(
+    (info: Omit<Repo, "id">) => {
+      const r: Repo = { id: Date.now(), ...info };
+      setHistory((h) => [r, ...h]);
+      setActiveRepo(r);
+      addToast(`✓ Indexed ${info.fns} functions from ${info.files} files`, "success");
+    },
+    [addToast]
+  );
 
-  const handleLoad = useCallback((repo: Repo) => {
-    setActiveRepo(repo);
-    addToast(`Loaded: ${repo.name}`,"info");
-  },[addToast]);
+  const handleLoad = useCallback(
+    (repo: Repo) => {
+      setActiveRepo(repo);
+      addToast(`Loaded: ${repo.name}`, "info");
+    },
+    [addToast]
+  );
 
   return (
     <>
       <style>{CSS}</style>
-      <div style={{display:"flex",height:"100vh",overflow:"hidden",background:"var(--void)"}}>
-        <Sidebar items={history} active={activeRepo} onLoad={handleLoad}/>
-        <div style={{flex:1, display:"flex", flexDirection:"column"}}>
-          <Hero activeRepo={activeRepo} onUpload={handleUpload}/>
-          {graphData && (<div style={{background:"var(--ink)",borderTop:"1px solid var(--edge)",padding:"20px",height:"420px"}}><h3 style={{marginBottom:10}}>Dependency Graph</h3><DependencyGraph graph={graphData}/></div>)}
-            
-            
-              
-          
-              
 
+      <div
+        style={{
+          display: "flex",
+          height: "100vh",
+          overflow: "hidden",
+          background: "var(--void)",
+        }}
+      >
+        <Sidebar items={history} active={activeRepo} onLoad={handleLoad} />
 
+        <div style={{ flex: 1, display: "flex" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+            <Hero activeRepo={activeRepo} onUpload={handleUpload} />
+          </div>
 
+          {rightPanel && (
+            <div
+              style={{
+                width: 520,
+                height: "100vh",
+                background: "var(--ink)",
+                borderLeft: "1px solid var(--edge)",
+                display: "flex",
+                flexDirection: "column",
+                zIndex: 100,
+              }}
+            >
+              <div
+                style={{
+                  padding: "12px 16px",
+                  borderBottom: "1px solid var(--edge)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                }}
+              >
+                <b>{rightPanel}</b>
+                <button onClick={() => setRightPanel(null)}>✕</button>
+              </div>
 
+              <div style={{ flex: 1, overflow: "hidden" }}>
+                {rightPanel === "chat" && (
+                  <ChatWidget
+                    active={!!activeRepo}
+                    activeRepo={activeRepo}
+                    setGraphData={(g: any) => {
+                      setGraphData(g);
+                      setRightPanel("graph");
+                    }}
+                    onViewCode={(file: string, start?: number, end?: number) => {
+                      setCodeFile(file);
+                      setHighlight({
+                        start: start ?? 1,
+                        end: end ?? 50,
+                      });
+                      setRightPanel("code");
+                    }}
+                  />
+                )}
 
+                {rightPanel === "graph" && graphData && (
+                  <DependencyGraph graph={graphData} />
+                )}
+              </div>
+            </div>
+          )}
         </div>
-        
       </div>
-      {codeFile && <CodePanel repoName={activeRepo?.name.replace(".zip","") || ""}  file={codeFile} highlight={highlight} onClose={()=>setCodeFile(null)}/>}
+
+      {codeFile && (
+        <CodePanel
+          repoName={activeRepo?.name.replace(".zip", "") || ""}
+          file={codeFile}
+          highlight={highlight}
+          onClose={() => setCodeFile(null)}
+        />
+      )}
+
       <ChatWidget
         active={!!activeRepo}
         activeRepo={activeRepo}
         setGraphData={setGraphData}
-        onViewCode={(file:string,start?:number,end?:number)=>{
-          setCodeFile(file)
+        onViewCode={(file: string, start?: number, end?: number) => {
+          setCodeFile(file);
           setHighlight({
-            start: start?? 1,
-            end: end?? 50
-          })
+            start: start ?? 1,
+            end: end ?? 50,
+          });
         }}
-        />
+      />
 
-
-
-      <Toasts list={toasts} remove={id=>setToasts(t=>t.filter(x=>x.id!==id))}/>
+      <Toasts
+        list={toasts}
+        remove={(id) => setToasts((t) => t.filter((x) => x.id !== id))}
+      />
     </>
   );
 }
