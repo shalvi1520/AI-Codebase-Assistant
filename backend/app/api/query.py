@@ -1,9 +1,11 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.services.embedding import generate_embedding
-from app.services.vector_store import search
+from app.services.retrieval import retrieve_code
 from app.services.llm_service import generate_response
+from app.services.query_classifier import detect_query_type
+from app.services.graph_builder import build_dependency_graph
+
 
 router = APIRouter()
 
@@ -17,28 +19,66 @@ class QueryRequest(BaseModel):
 @router.post("/query")
 async def query_codebase(request: QueryRequest):
 
-    # Convert user question → embedding
-    query_vector = generate_embedding(
-        f"Explain the following function: {request.question}"
-    )
+    # Detect query type
+    query_type = detect_query_type(request.question)
 
-    # Retrieve relevant functions from FAISS
-    retrieved = search(request.repo_name, query_vector, request.top_k)
+    # -----------------------------
+    # GRAPH MODE
+    # -----------------------------
+    if query_type == "graph":
 
-    # Safety check if nothing found
-    if not retrieved:
+        graph = build_dependency_graph(request.repo_name)
+
         return {
-            "question": request.question,
-            "retrieved_functions": [],
-            "answer": "No relevant code found in the uploaded codebase."
+            "mode": "graph",
+            "graph": graph,
+            "answer": "Here is the dependency graph of the codebase."
         }
 
-    # Generate explanation using LLM
+    # -----------------------------
+    # RETRIEVE CODE (for finder/chat)
+    # -----------------------------
+    retrieved = retrieve_code(
+        request.repo_name,
+        request.question,
+        request.top_k
+    )
+
+    # -----------------------------
+    # NO CODE FOUND
+    # -----------------------------
+    if not retrieved:
+        return {
+            "mode": "chat",
+            "answer": "No relevant code found in the repository.",
+            "file": None
+        }
+
+    # -----------------------------
+    # CODE FINDER MODE
+    # -----------------------------
+    if query_type == "code_finder":
+
+        top = retrieved[0]
+
+        return {
+            "mode": "finder",
+            "answer": f"Relevant code found in {top['file']}",
+            "file": top["file"],
+            "start_line": top.get("start_line", 1),
+            "end_line": top.get("end_line", 1),
+            "code": top["code"]
+        }
+
+    # -----------------------------
+    # NORMAL CHAT MODE
+    # -----------------------------
     answer = generate_response(request.question, retrieved)
 
     return {
-    "question": request.question,
-    "retrieved_functions": retrieved,
-    "answer": answer,
-    "file": retrieved[0]["file"] if len(retrieved) > 0 else None
-}
+        "mode": "chat",
+        "question": request.question,
+        "retrieved_functions": retrieved,
+        "answer": answer,
+        "file": retrieved[0]["file"]
+    }

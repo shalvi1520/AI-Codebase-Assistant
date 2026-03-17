@@ -2,7 +2,6 @@ import axios from "axios";
 
 /*
 Backend URL
-
 Use environment variable if available
 otherwise fallback to localhost backend
 */
@@ -47,7 +46,10 @@ export const uploadCodebase = async (file: File) => {
 /*
 Ask question about codebase
 Calls FastAPI POST /query
-Now includes repo_name so backend searches the correct repo
+
+Supports:
+1️⃣ Normal chat response
+2️⃣ Code Finder response
 */
 
 export const queryCodebase = async (
@@ -65,6 +67,54 @@ export const queryCodebase = async (
     return response.data;
   } catch (error: any) {
     console.error("Query failed:", error);
+    throw error;
+  }
+};
+
+/*
+Get file content
+Used by Code Finder to open file in editor
+
+Calls FastAPI GET /file
+*/
+
+export const getFileContent = async (
+  repoName: string,
+  filePath: string
+) => {
+  try {
+    const response = await client.get("/file", {
+      params: {
+        repo_name: repoName,
+        path: filePath,
+      },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error("File fetch failed:", error);
+    throw error;
+  }
+};
+
+/*
+Get repository file tree
+Used for Codebase Visualizer
+
+Calls FastAPI GET /repo_tree
+*/
+
+export const getRepoTree = async (repoName: string) => {
+  try {
+    const response = await client.get("/repo_tree", {
+      params: {
+        repo_name: repoName,
+      },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Repo tree fetch failed:", error);
     throw error;
   }
 };

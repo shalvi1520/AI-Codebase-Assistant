@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.files import router as file_router
+
+
 
 # Import API routers
 from app.api.upload import router as upload_router
@@ -39,6 +42,7 @@ app.add_middleware(
 # -------------------------------------------------
 app.include_router(upload_router, tags=["Upload"])
 app.include_router(query_router, tags=["Query"])
+app.include_router(file_router)
 
 
 # -------------------------------------------------

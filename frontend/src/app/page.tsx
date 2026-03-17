@@ -1,11 +1,13 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { uploadCodebase, queryCodebase } from "@/services/api";
+import { uploadCodebase, queryCodebase, getFileContent } from "@/services/api";
+import DependencyGraph from "../components/DependencyGraph";
 
 /* ══════════════════════════════════════════════════════════════
    GLOBAL STYLES
 ══════════════════════════════════════════════════════════════ */
 const CSS = `
+
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -279,70 +281,165 @@ function Toasts({ list, remove }: { list: Toast[]; remove: (id:number)=>void }) 
 /* ══════════════════════════════════════════════════════════════
    CODE PANEL
 ══════════════════════════════════════════════════════════════ */
-function CodePanel({ file, onClose }: { file: string; onClose: ()=>void }) {
-  const [copied, setCopied] = useState(false);
-  const data = CODE_SAMPLES[file];
-  if (!data) return null;
-  const lines = data.code.split("\n");
-  const copy = () => { navigator.clipboard.writeText(data.code).catch(()=>{}); setCopied(true); setTimeout(()=>setCopied(false),2000); };
+function CodePanel({
+  repoName,
+  file,
+  highlight,
+  onClose
+}: {
+  repoName: string
+  file: string
+  highlight?: { start: number; end: number } | null
+  onClose: () => void
+}) {
+
+  const [code, setCode] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+
+    async function loadFile() {
+      try {
+
+        const data = await getFileContent(repoName,file)
+
+        setCode(data.content || data.code || "")
+
+      } catch (err) {
+
+        console.error("File load error:", err)
+        setCode("Could not load file.")
+
+      }
+
+      setLoading(false)
+    }
+
+    loadFile()
+
+  }, [file])
+
+  const copy = () => {
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const lines = code.split("\n")
+  const highlightedRef = useRef<HTMLDivElement | null>(null)
+
+useEffect(() => {
+  if (highlightedRef.current) {
+    highlightedRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "center"
+    })
+  }
+}, [code])
 
   return (
-    <div style={{position:"fixed",right:0,top:0,bottom:0,width:500,background:"var(--ink)",
-      borderLeft:"1px solid var(--edgeM)",display:"flex",flexDirection:"column",zIndex:500,
-      animation:"codeSlide .3s cubic-bezier(.16,1,.3,1)",boxShadow:"-16px 0 60px rgba(0,0,0,.6)"}}>
-      <div style={{padding:"14px 18px",borderBottom:"1px solid var(--edge)",background:"var(--base)",
-        flexShrink:0,display:"flex",alignItems:"center",gap:12}}>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-            <Ic d={P.File} s={11} col="var(--t3)"/>
-            <span style={{fontSize:11,color:"var(--t3)",fontFamily:"var(--mono)",
-              overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{file}</span>
-          </div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:14,fontWeight:700,color:"var(--t1)",fontFamily:"var(--mono)"}}>{data.name}()</span>
-            <span className="tag" style={{background:"rgba(124,92,252,.15)",color:"#9b7ffe",border:"1px solid rgba(124,92,252,.25)"}}>{data.lang}</span>
-            <span className="tag" style={{background:"rgba(6,182,212,.1)",color:"var(--cyan)",border:"1px solid rgba(6,182,212,.2)"}}>{lines.length} lines</span>
-          </div>
+    <div style={{
+      position: "fixed",
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: 500,
+      background: "var(--ink)",
+      borderLeft: "1px solid var(--edgeM)",
+      display: "flex",
+      flexDirection: "column",
+      zIndex: 500
+    }}>
+
+      {/* HEADER */}
+
+      <div style={{
+        padding: "14px 18px",
+        borderBottom: "1px solid var(--edge)",
+        background: "var(--base)",
+        display: "flex",
+        alignItems: "center"
+      }}>
+
+        <div style={{ flex: 1 }}>
+          <b>{file}</b>
         </div>
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={copy} style={{display:"flex",alignItems:"center",gap:5,padding:"6px 12px",
-            background:copied?"rgba(16,185,129,.1)":"var(--layer)",
-            border:`1px solid ${copied?"rgba(16,185,129,.3)":"var(--edge)"}`,
-            borderRadius:"var(--r1)",cursor:"pointer",color:copied?"var(--green)":"var(--t3)",
-            fontSize:11,fontFamily:"var(--ui)",fontWeight:500,transition:"all .2s"}}>
-            <Ic d={copied?P.Check:P.Copy} s={11}/>{copied?"Copied":"Copy"}
-          </button>
-          <button onClick={onClose} style={{width:32,height:32,borderRadius:"var(--r1)",
-            background:"var(--layer)",border:"1px solid var(--edge)",cursor:"pointer",
-            color:"var(--t3)",display:"flex",alignItems:"center",justifyContent:"center"}}
-            onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.background="var(--raised)";(e.currentTarget as HTMLButtonElement).style.color="var(--t1)";}}
-            onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.background="var(--layer)";(e.currentTarget as HTMLButtonElement).style.color="var(--t3)";}}>
-            <Ic d={P.X} s={14}/>
-          </button>
-        </div>
+
+        <button onClick={copy}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+
+        <button onClick={onClose}>
+          ✕
+        </button>
+
       </div>
-      <div style={{flex:1,overflowY:"auto",overflowX:"auto",padding:"12px 0"}}>
-        {lines.map((ln,i)=>(
-          <div key={i} className="code-ln" style={{paddingRight:24}}>
-            <span style={{width:46,textAlign:"right",paddingRight:18,flexShrink:0,
-              display:"inline-block",fontSize:11,fontFamily:"var(--mono)",
-              color:"var(--t4)",userSelect:"none",lineHeight:"21px"}}>{i+1}</span>
-            <span style={{fontSize:12.5,fontFamily:"var(--mono)",lineHeight:"21px",
-              color:"var(--t2)",whiteSpace:"pre"}}
-              dangerouslySetInnerHTML={{__html:hlCode(ln)||"&nbsp;"}}/>
-          </div>
-        ))}
+
+      {/* CODE VIEW */}
+
+      <div style={{
+        flex: 1,
+        overflowY: "auto",
+        padding: "10px"
+      }}>
+
+        {loading && (
+          <div>Loading file...</div>
+        )}
+
+        {!loading && lines.map((line, i) => {
+
+          const lineNumber = i + 1
+
+          const isHighlighted =
+            highlight &&
+            lineNumber >= highlight.start &&
+            lineNumber <= highlight.end
+
+          return (
+
+            <div
+              key={i}
+              ref={isHighlighted ? highlightedRef : null}
+              
+              style={{
+                display: "flex",
+                background: isHighlighted
+                  ? "rgba(124,92,252,.25)"
+                  : "transparent"
+              }}
+            >
+
+              {/* LINE NUMBER */}
+
+              <span style={{
+                width: 40,
+                color: "#666",
+                userSelect: "none"
+              }}>
+                {lineNumber}
+              </span>
+
+              {/* CODE */}
+
+              <span style={{
+                whiteSpace: "pre",
+                fontFamily: "monospace"
+              }}>
+                {line}
+              </span>
+
+            </div>
+
+          )
+
+        })}
+
       </div>
-      <div style={{padding:"9px 18px",borderTop:"1px solid var(--edge)",background:"var(--base)",
-        flexShrink:0,display:"flex",alignItems:"center",gap:10}}>
-        <div style={{width:6,height:6,borderRadius:"50%",background:"var(--green)",
-          animation:"pulse 2s infinite",boxShadow:"0 0 5px var(--green)"}}/>
-        <span style={{fontSize:11,color:"var(--t3)",fontFamily:"var(--mono)"}}>94% relevance match</span>
-        <span className="tag" style={{marginLeft:"auto",background:"rgba(16,185,129,.1)",
-          color:"var(--green)",border:"1px solid rgba(16,185,129,.2)"}}>RETRIEVED</span>
-      </div>
+
     </div>
-  );
+  )
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -351,11 +448,14 @@ function CodePanel({ file, onClose }: { file: string; onClose: ()=>void }) {
 function ChatWidget({
   active,
   activeRepo,
-  onViewCode
+  onViewCode,
+  setGraphData
 }: {
   active: boolean
   activeRepo: Repo | null
-  onViewCode: (f: string) => void
+  onViewCode: (f: string, start?:number, end?:number) => void
+  setGraphData: (data:any)=>void
+
 }) {
   const [open, setOpen]   = useState(false);
   const [msgs, setMsgs]   = useState<Msg[]>([]);
@@ -384,6 +484,10 @@ function ChatWidget({
 
     
     const response = await queryCodebase(q, activeRepo.name.replace(".zip",""), 3);
+    if (response.mode === "graph") {
+      setGraphData(response.graph)
+    }  
+
 
     /*
     backend response example:
@@ -403,8 +507,12 @@ function ChatWidget({
       },
     ]);
 
-    if (response.file) {
-      onViewCode(response.file);
+    if (response.mode === "finder" && response.file){
+      onViewCode(
+        response.file,
+        response.start_line??1,
+        response.end_line??10
+      );
     }
 
   } catch (err) {
@@ -421,7 +529,7 @@ function ChatWidget({
 
   setBusy(false);
 
-}, [inp, busy, active, onViewCode]);
+}, [inp, busy, active, activeRepo, onViewCode, setGraphData]);
 
   const renderAI = (text: string) =>
     text.split("\n").map((ln,i)=>(
@@ -1047,6 +1155,8 @@ export default function Home() {
   const [history,    setHistory]    = useState<Repo[]>(INIT_HIST);
   const [activeRepo, setActiveRepo] = useState<Repo|null>(null);
   const [codeFile,   setCodeFile]   = useState<string|null>(null);
+  const [highlight, setHighlight] = useState<{start:number,end:number} | null>(null);
+  const [graphData, setGraphData] = useState<any>(null);
   const [toasts,     setToasts]     = useState<Toast[]>([]);
 
   const addToast = useCallback((message: string, type: Toast["type"]="info") => {
@@ -1072,10 +1182,37 @@ export default function Home() {
       <style>{CSS}</style>
       <div style={{display:"flex",height:"100vh",overflow:"hidden",background:"var(--void)"}}>
         <Sidebar items={history} active={activeRepo} onLoad={handleLoad}/>
-        <Hero activeRepo={activeRepo} onUpload={handleUpload}/>
+        <div style={{flex:1, display:"flex", flexDirection:"column"}}>
+          <Hero activeRepo={activeRepo} onUpload={handleUpload}/>
+          {graphData && (<div style={{background:"var(--ink)",borderTop:"1px solid var(--edge)",padding:"20px",height:"420px"}}><h3 style={{marginBottom:10}}>Dependency Graph</h3><DependencyGraph graph={graphData}/></div>)}
+            
+            
+              
+          
+              
+
+
+
+
+
+        </div>
+        
       </div>
-      {codeFile && <CodePanel file={codeFile} onClose={()=>setCodeFile(null)}/>}
-      <ChatWidget active={!!activeRepo} activeRepo={activeRepo} onViewCode={f => setCodeFile(f)}/>
+      {codeFile && <CodePanel repoName={activeRepo?.name.replace(".zip","") || ""}  file={codeFile} highlight={highlight} onClose={()=>setCodeFile(null)}/>}
+      <ChatWidget
+        active={!!activeRepo}
+        activeRepo={activeRepo}
+        setGraphData={setGraphData}
+        onViewCode={(file:string,start?:number,end?:number)=>{
+          setCodeFile(file)
+          setHighlight({
+            start: start?? 1,
+            end: end?? 50
+          })
+        }}
+        />
+
+
 
       <Toasts list={toasts} remove={id=>setToasts(t=>t.filter(x=>x.id!==id))}/>
     </>

@@ -25,7 +25,6 @@ async def upload_codebase(file: UploadFile = File(...)):
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # repo name
     repo_name = file.filename.replace(".zip", "")
 
     if os.path.exists(EXTRACT_DIR):
@@ -58,7 +57,9 @@ Code:
         metadata.append({
             "file": item["file"],
             "function_name": item["function_name"],
-            "code": item["code"]
+            "code": item["code"],
+            "start_line": item["start_line"],
+            "end_line": item["end_line"]
         })
 
     add_embeddings(repo_name, embeddings, metadata)
