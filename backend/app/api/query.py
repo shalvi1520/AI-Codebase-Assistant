@@ -19,14 +19,14 @@ class QueryRequest(BaseModel):
 @router.post("/query")
 async def query_codebase(request: QueryRequest):
 
-    # -----------------------------
-    # DETECT QUERY TYPE
-    # -----------------------------
+
+    
+    
     query_type = detect_query_type(request.question)
 
-    # -----------------------------
-    # GRAPH MODE
-    # -----------------------------
+    
+
+    
     if query_type == "graph":
 
         graph = build_dependency_graph(request.repo_name)
@@ -37,9 +37,9 @@ async def query_codebase(request: QueryRequest):
             "answer": "Here is the dependency graph of the codebase."
         }
 
-    # -----------------------------
-    # 🔥 SMART FUNCTION MATCH (FIXED)
-    # -----------------------------
+    
+    
+    
     query_lower = request.question.lower()
 
     all_functions = get_all_functions(request.repo_name)
@@ -51,19 +51,19 @@ async def query_codebase(request: QueryRequest):
         if not function_name:
             continue
 
-        # convert snake_case → normal text
+        
         fn_clean = function_name.replace("_", " ").strip()
 
-        # clean user query
+    
         query_clean = query_lower.replace("_", " ")
 
-        # remove useless words
+        
         for word in ["where", "is", "function", "show", "find", "the"]:
             query_clean = query_clean.replace(word, "")
 
         query_clean = query_clean.strip()
 
-        # match words
+        
         if query_clean and all(word in fn_clean for word in query_clean.split()):
 
             return {
@@ -75,18 +75,17 @@ async def query_codebase(request: QueryRequest):
                 "code": item["code"]
             }
 
-    # -----------------------------
-    # FAISS SEARCH (fallback)
-    # -----------------------------
+    
+    
+    
     retrieved = retrieve_code(
         request.repo_name,
         request.question,
         request.top_k
     )
 
-    # -----------------------------
-    # NO CODE FOUND
-    # -----------------------------
+
+    
     if not retrieved:
         return {
             "mode": "chat",
@@ -94,9 +93,9 @@ async def query_codebase(request: QueryRequest):
             "file": None
         }
 
-    # -----------------------------
-    # CODE FINDER MODE (fallback)
-    # -----------------------------
+    
+    
+
     if query_type == "code_finder":
 
         top = retrieved[0]
@@ -110,9 +109,7 @@ async def query_codebase(request: QueryRequest):
             "code": top["code"]
         }
 
-    # -----------------------------
-    # NORMAL CHAT MODE
-    # -----------------------------
+    
     answer = generate_response(request.question, retrieved)
 
     return {

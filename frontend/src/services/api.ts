@@ -50,18 +50,21 @@ Calls FastAPI POST /query
 Supports:
 1️⃣ Normal chat response
 2️⃣ Code Finder response
+3️⃣ Conversation memory via session_id
 */
 
 export const queryCodebase = async (
   question: string,
   repoName: string,
-  topK: number = 3
+  topK: number = 3,
+  sessionId: string = ""        // pass session ID for memory — empty = stateless
 ) => {
   try {
     const response = await client.post("/query", {
-      repo_name: repoName,
-      question: question,
-      top_k: topK,
+      repo_name:  repoName,
+      question:   question,
+      top_k:      topK,
+      session_id: sessionId,
     });
 
     return response.data;
@@ -115,6 +118,44 @@ export const getRepoTree = async (repoName: string) => {
     return response.data;
   } catch (error: any) {
     console.error("Repo tree fetch failed:", error);
+    throw error;
+  }
+};
+
+/*
+Clear conversation history for a session
+Calls FastAPI POST /session/clear
+*/
+
+export const clearSessionHistory = async (sessionId: string) => {
+  try {
+    const response = await client.post("/session/clear", {
+      session_id: sessionId,
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Session clear failed:", error);
+    throw error;
+  }
+};
+
+/*
+Get conversation history for a session
+Calls FastAPI GET /session/history
+*/
+
+export const getSessionHistory = async (sessionId: string) => {
+  try {
+    const response = await client.get("/session/history", {
+      params: {
+        session_id: sessionId,
+      },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Session history fetch failed:", error);
     throw error;
   }
 };

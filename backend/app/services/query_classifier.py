@@ -13,7 +13,7 @@ def detect_query_type(query: str) -> str:
 
     q = query.lower().strip()
 
-    # ---------- KEYWORDS FOR DEPENDENCY GRAPH ----------
+    
     graph_keywords = [
         "dependency",
         "dependencies",
@@ -26,7 +26,7 @@ def detect_query_type(query: str) -> str:
         "module structure"
     ]
 
-    # ---------- KEYWORDS FOR CODE FINDER ----------
+    
     finder_keywords = [
         "find",
         "locate",
@@ -39,15 +39,15 @@ def detect_query_type(query: str) -> str:
         "search function"
     ]
 
-    # ---------- CHECK GRAPH ----------
+    
     for word in graph_keywords:
         if word in q:
             return "graph"
 
-    # ---------- CHECK FINDER ----------
+    
     for word in finder_keywords:
         if word in q:
             return "code_finder"
 
-    # ---------- DEFAULT ----------
+    
     return "chat"

@@ -10,10 +10,10 @@ def retrieve_code(repo_name: str, query: str, top_k: int = 3):
     Retrieve relevant code chunks from FAISS vector store
     """
 
-    # Convert query → embedding
+    
     query_vector = generate_embedding(query)
 
-    # Search FAISS index
+    
     results = search(repo_name, query_vector, top_k)
 
     formatted = []
@@ -30,7 +30,7 @@ def retrieve_code(repo_name: str, query: str, top_k: int = 3):
     return formatted
 
 
-# 🔥 NEW FUNCTION (VERY IMPORTANT)
+
 def get_all_functions(repo_name: str):
     """
     Get ALL functions from metadata (not FAISS)
