@@ -147,7 +147,7 @@ const P: Record<string, string> = {
    TYPES
 ══════════════════════════════════════════════════════════════ */
 interface Repo { id: number; name: string; files: number; fns: number; ts: number; }
-interface Msg  { role: "u" | "a"; content: string; file?: string | null; }
+interface Msg  { role: "u" | "a"; content: string; file?: string | null; start_line?: number; end_line?: number; }
 interface Toast{ id: number; message: string; type: "success"|"error"|"info"; }
 
 /* ══════════════════════════════════════════════════════════════
@@ -449,12 +449,14 @@ function ChatWidget({
   active,
   activeRepo,
   onViewCode,
-  setGraphData
+  setGraphData,
+  setRightPanel
 }: {
   active: boolean
   activeRepo: Repo | null
   onViewCode: (f: string, start?:number, end?:number) => void
   setGraphData: (data:any)=>void
+  setRightPanel: (panel: "chat" | "code" | "graph" | null) => void
 
 }) {
   const [open, setOpen]   = useState(false);
@@ -486,6 +488,7 @@ function ChatWidget({
     const response = await queryCodebase(q, activeRepo.name.replace(".zip",""), 3);
     if (response.mode === "graph") {
       setGraphData(response.graph)
+      setRightPanel("graph") 
     }  
 
 
@@ -504,6 +507,8 @@ function ChatWidget({
         role: "a",
         content: response.answer || "No response from AI.",
         file: response.file || null,
+        start_line: response.start_line,
+        end_line: response.end_line
       },
     ]);
 
@@ -658,7 +663,7 @@ function ChatWidget({
                         <div style={{display:"flex",flexDirection:"column",gap:5,maxWidth:"95%"}}>
                           <div className="msg-ai">{renderAI(m.content)}</div>
                           {m.file && (
-                            <button onClick={()=>onViewCode(m.file!)} style={{
+                            <button onClick={()=>onViewCode(m.file!,(m as any).start_line,(m as any).end_line )} style={{
                               display:"flex",alignItems:"center",gap:5,padding:"4px 9px",
                               borderRadius:8,background:"var(--vgs)",
                               border:"1px solid rgba(124,92,252,.2)",color:"#9b7ffe",
@@ -1239,6 +1244,7 @@ export default function Home() {
                       setGraphData(g);
                       setRightPanel("graph");
                     }}
+                    setRightPanel={setRightPanel}
                     onViewCode={(file: string, start?: number, end?: number) => {
                       setCodeFile(file);
                       setHighlight({
@@ -1272,6 +1278,7 @@ export default function Home() {
         active={!!activeRepo}
         activeRepo={activeRepo}
         setGraphData={setGraphData}
+        setRightPanel={setRightPanel}
         onViewCode={(file: string, start?: number, end?: number) => {
           setCodeFile(file);
           setHighlight({

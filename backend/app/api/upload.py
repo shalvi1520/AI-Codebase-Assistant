@@ -6,7 +6,7 @@ import zipfile
 from app.services.parser import parse_python_files
 from app.services.embedding import generate_embedding
 from app.services.vector_store import add_embeddings
-
+from app.services.graph_builder import build_dependency_graph  # 🔥 NEW
 
 router = APIRouter()
 
@@ -35,7 +35,7 @@ async def upload_codebase(file: UploadFile = File(...)):
     # -----------------------------
     repo_extract_path = os.path.join(EXTRACT_DIR, repo_name)
 
-    # Delete only this repo folder (NOT entire extracted)
+    # Delete old repo folder
     if os.path.exists(repo_extract_path):
         shutil.rmtree(repo_extract_path)
 
@@ -48,7 +48,7 @@ async def upload_codebase(file: UploadFile = File(...)):
         zip_ref.extractall(repo_extract_path)
 
     # -----------------------------
-    # PARSE FILES FROM CORRECT PATH
+    # PARSE FILES (WITH CALLS)
     # -----------------------------
     parsed = parse_python_files(repo_extract_path)
 
@@ -56,7 +56,7 @@ async def upload_codebase(file: UploadFile = File(...)):
     metadata = []
 
     # -----------------------------
-    # CREATE EMBEDDINGS
+    # CREATE EMBEDDINGS + METADATA
     # -----------------------------
     for item in parsed:
 
@@ -75,6 +75,7 @@ Code:
         metadata.append({
             "file": item["file"],
             "function_name": item["function_name"],
+            "calls": item.get("calls", []),  # 🔥 IMPORTANT (for graph)
             "code": item["code"],
             "start_line": item["start_line"],
             "end_line": item["end_line"]
@@ -86,10 +87,16 @@ Code:
     add_embeddings(repo_name, embeddings, metadata)
 
     # -----------------------------
+    # 🔥 BUILD DEPENDENCY GRAPH
+    # -----------------------------
+    graph = build_dependency_graph(repo_name)
+
+    # -----------------------------
     # RESPONSE
     # -----------------------------
     return {
-        "message": "Upload, parsing, embedding and indexing completed",
+        "message": "Upload, parsing, embedding, and graph generation completed",
         "functions_found": len(parsed),
-        "vectors_stored": len(embeddings)
+        "vectors_stored": len(embeddings),
+        "graph": graph  # 🔥 RETURN GRAPH
     }
