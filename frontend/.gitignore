@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+
+backend/vector_dbs/*.faiss
+backend/vector_dbs/*.pkl
