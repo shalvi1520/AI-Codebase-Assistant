@@ -8,3 +8,6 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+*.pkl
+*.faiss
+vector_dbs/
