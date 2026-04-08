@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { uploadCodebase, queryCodebase, getFileContent } from "@/services/api";
+import { uploadCodebase, queryCodebase, getFileContent, clearSessionHistory } from "@/services/api";
 import DependencyGraph from "../components/DependencyGraph";
 
 /* ══════════════════════════════════════════════════════════════
@@ -450,14 +450,15 @@ function ChatWidget({
   activeRepo,
   onViewCode,
   setGraphData,
-  setRightPanel
+  setRightPanel,
+  sessionId
 }: {
   active: boolean
   activeRepo: Repo | null
   onViewCode: (f: string, start?:number, end?:number) => void
   setGraphData: (data:any)=>void
   setRightPanel: (panel: "chat" | "code" | "graph" | null) => void
-
+  sessionId: string
 }) {
   const [open, setOpen]   = useState(false);
   const [msgs, setMsgs]   = useState<Msg[]>([]);
@@ -485,7 +486,7 @@ function ChatWidget({
     if (!activeRepo) return;
 
     
-    const response = await queryCodebase(q, activeRepo.name.replace(".zip",""), 3);
+    const response = await queryCodebase(q, activeRepo.name.replace(".zip",""), 3, sessionId);
     if (response.mode === "graph") {
       setGraphData(response.graph)
       setRightPanel("graph") 
@@ -534,7 +535,7 @@ function ChatWidget({
 
   setBusy(false);
 
-}, [inp, busy, active, activeRepo, onViewCode, setGraphData]);
+}, [inp, busy, active, activeRepo, onViewCode, setGraphData, sessionId]);
 
   const renderAI = (text: string) =>
     text.split("\n").map((ln,i)=>(
@@ -1164,6 +1165,13 @@ export default function Home() {
   const [graphData, setGraphData] = useState<any>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [rightPanel, setRightPanel] = useState<"chat" | "code" | "graph" | null>(null);
+  const [sessionId, setSessionId] = useState<string>("");
+
+  useEffect(() => {
+    const id = `session_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    setSessionId(id);
+    }, []);
+
 
   const addToast = useCallback(
     (message: string, type: Toast["type"] = "info") => {
@@ -1240,6 +1248,7 @@ export default function Home() {
                   <ChatWidget
                     active={!!activeRepo}
                     activeRepo={activeRepo}
+                    sessionId={sessionId}
                     setGraphData={(g: any) => {
                       setGraphData(g);
                       setRightPanel("graph");
@@ -1277,6 +1286,7 @@ export default function Home() {
       <ChatWidget
         active={!!activeRepo}
         activeRepo={activeRepo}
+        sessionId={sessionId}
         setGraphData={setGraphData}
         setRightPanel={setRightPanel}
         onViewCode={(file: string, start?: number, end?: number) => {
