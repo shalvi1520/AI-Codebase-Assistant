@@ -1,17 +1,7 @@
 import axios from "axios";
 
-/*
-Backend URL
-Use environment variable if available
-otherwise fallback to localhost backend
-*/
-
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-
-/*
-Axios client
-*/
 
 const client = axios.create({
   baseURL: API_BASE_URL,
@@ -20,20 +10,18 @@ const client = axios.create({
   },
 });
 
-/*
-Upload ZIP Codebase
-Calls FastAPI POST /upload
-*/
 
+/*
+ * Upload ZIP Codebase
+ * Calls FastAPI POST /upload
+ */
 export const uploadCodebase = async (file: File) => {
   try {
     const formData = new FormData();
     formData.append("file", file);
 
     const response = await client.post("/upload", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+      headers: { "Content-Type": "multipart/form-data" },
     });
 
     return response.data;
@@ -43,21 +31,60 @@ export const uploadCodebase = async (file: File) => {
   }
 };
 
+
 /*
-Ask question about codebase
-Calls FastAPI POST /query
+ * Upload from Git URL  (NEW)
+ * Calls FastAPI POST /upload-git
+ *
+ * git_url  — e.g. "https://github.com/owner/repo"
+ * repoName — optional override; backend infers from URL if empty
+ */
+export const uploadFromGit = async (
+  gitUrl: string,
+  repoName: string = ""
+) => {
+  try {
+    const response = await client.post("/upload-git", {
+      git_url:   gitUrl,
+      repo_name: repoName,
+    });
 
-Supports:
-1️⃣ Normal chat response
-2️⃣ Code Finder response
-3️⃣ Conversation memory via session_id
-*/
+    return response.data;
+  } catch (error: any) {
+    console.error("Git upload failed:", error);
+    throw error;
+  }
+};
 
+
+/*
+ * Get commit log for a cloned repo  (NEW)
+ * Calls FastAPI GET /commit-log?repo_name=...
+ * Returns [] for ZIP-uploaded repos (no git history).
+ */
+export const getCommitLog = async (repoName: string) => {
+  try {
+    const response = await client.get("/commit-log", {
+      params: { repo_name: repoName },
+    });
+
+    return response.data; // { repo_name, commits: [...] }
+  } catch (error: any) {
+    console.error("Commit log fetch failed:", error);
+    throw error;
+  }
+};
+
+
+/*
+ * Ask question about codebase
+ * Calls FastAPI POST /query
+ */
 export const queryCodebase = async (
   question: string,
   repoName: string,
   topK: number = 3,
-  sessionId: string = ""        // pass session ID for memory — empty = stateless
+  sessionId: string = ""
 ) => {
   try {
     const response = await client.post("/query", {
@@ -74,23 +101,15 @@ export const queryCodebase = async (
   }
 };
 
+
 /*
-Get file content
-Used by Code Finder to open file in editor
-
-Calls FastAPI GET /file
-*/
-
-export const getFileContent = async (
-  repoName: string,
-  filePath: string
-) => {
+ * Get file content
+ * Calls FastAPI GET /file
+ */
+export const getFileContent = async (repoName: string, filePath: string) => {
   try {
     const response = await client.get("/file", {
-      params: {
-        repo_name: repoName,
-        path: filePath,
-      },
+      params: { repo_name: repoName, path: filePath },
     });
 
     return response.data;
@@ -100,19 +119,15 @@ export const getFileContent = async (
   }
 };
 
+
 /*
-Get repository file tree
-Used for Codebase Visualizer
-
-Calls FastAPI GET /repo_tree
-*/
-
+ * Get repository file tree
+ * Calls FastAPI GET /repo_tree
+ */
 export const getRepoTree = async (repoName: string) => {
   try {
     const response = await client.get("/repo_tree", {
-      params: {
-        repo_name: repoName,
-      },
+      params: { repo_name: repoName },
     });
 
     return response.data;
@@ -122,17 +137,14 @@ export const getRepoTree = async (repoName: string) => {
   }
 };
 
-/*
-Clear conversation history for a session
-Calls FastAPI POST /session/clear
-*/
 
+/*
+ * Clear conversation history
+ * Calls FastAPI POST /session/clear
+ */
 export const clearSessionHistory = async (sessionId: string) => {
   try {
-    const response = await client.post("/session/clear", {
-      session_id: sessionId,
-    });
-
+    const response = await client.post("/session/clear", { session_id: sessionId });
     return response.data;
   } catch (error: any) {
     console.error("Session clear failed:", error);
@@ -140,19 +152,16 @@ export const clearSessionHistory = async (sessionId: string) => {
   }
 };
 
-/*
-Get conversation history for a session
-Calls FastAPI GET /session/history
-*/
 
+/*
+ * Get conversation history
+ * Calls FastAPI GET /session/history
+ */
 export const getSessionHistory = async (sessionId: string) => {
   try {
     const response = await client.get("/session/history", {
-      params: {
-        session_id: sessionId,
-      },
+      params: { session_id: sessionId },
     });
-
     return response.data;
   } catch (error: any) {
     console.error("Session history fetch failed:", error);

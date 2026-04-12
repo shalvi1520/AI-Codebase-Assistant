@@ -30,9 +30,9 @@ def _extract_method_name(node, source_bytes):
 
 
 def _collect_calls(node, source_bytes):
-    calls = []
+    calls   = []
     visited = set()
-    stack = [node]
+    stack   = [node]
 
     while stack:
         current = stack.pop()
@@ -54,7 +54,7 @@ def _collect_calls(node, source_bytes):
     return list(set(calls))
 
 
-def _collect_methods(node, source_bytes, filename, result, visited=None):
+def _collect_methods(node, source_bytes, relative_path, result, visited=None):
     if visited is None:
         visited = set()
 
@@ -70,7 +70,7 @@ def _collect_methods(node, source_bytes, filename, result, visited=None):
         end_line   = node.end_point[0]   + 1
 
         result.append({
-            "file":          filename,
+            "file":          relative_path,   # ← full relative path, not just basename
             "language":      "java",
             "function_name": name,
             "calls":         calls,
@@ -80,20 +80,27 @@ def _collect_methods(node, source_bytes, filename, result, visited=None):
         })
 
     for child in node.children:
-        _collect_methods(child, source_bytes, filename, result, visited)
+        _collect_methods(child, source_bytes, relative_path, result, visited)
 
 
 def parse_java_files(directory):
     parsed_data = []
 
     for root, dirs, files in os.walk(directory):
-        dirs[:] = [d for d in dirs if d not in ("build", "target", ".gradle", ".git", "out")]
+        # Skip folders that are never user code
+        dirs[:] = [
+            d for d in dirs
+            if d not in ("build", "target", ".gradle", ".git", "out", "__pycache__")
+        ]
 
         for filename in files:
             if not filename.endswith(".java"):
                 continue
 
             file_path = os.path.join(root, filename)
+
+            # ── FIX: store relative path, not just basename ───────────────────
+            relative_path = os.path.relpath(file_path, directory)
 
             try:
                 with open(file_path, "r", encoding="utf-8", errors="replace") as f:
@@ -106,7 +113,7 @@ def parse_java_files(directory):
                 _collect_methods(
                     tree.root_node,
                     source_bytes,
-                    filename,
+                    relative_path,   # ← was: filename (basename only)
                     parsed_data,
                 )
 

@@ -37,22 +37,26 @@ def _node_text(node, source_bytes):
 
 
 def _extract_function_name(node, source_bytes):
+    # Named function declarations: function foo() {}
     if node.type in ("function_declaration", "generator_function_declaration"):
         name_node = node.child_by_field_name("name")
         if name_node:
             return _node_text(name_node, source_bytes)
 
+    # Class method definitions: foo() {}
     if node.type == "method_definition":
         name_node = node.child_by_field_name("name")
         if name_node:
             return _node_text(name_node, source_bytes)
 
+    # Arrow / anonymous assigned to variable: const foo = () => {}
     parent = node.parent
     if parent and parent.type == "variable_declarator":
         name_node = parent.child_by_field_name("name")
         if name_node:
             return _node_text(name_node, source_bytes)
 
+    # Assigned to existing variable: foo = function() {}
     if parent and parent.type == "assignment_expression":
         left = parent.child_by_field_name("left")
         if left:
@@ -62,9 +66,9 @@ def _extract_function_name(node, source_bytes):
 
 
 def _collect_calls(node, source_bytes):
-    calls = []
+    calls   = []
     visited = set()
-    stack = [node]
+    stack   = [node]
 
     while stack:
         current = stack.pop()
@@ -87,7 +91,7 @@ def _collect_calls(node, source_bytes):
     return list(set(calls))
 
 
-def _collect_functions(node, source_bytes, filename, language_label, result, visited=None):
+def _collect_functions(node, source_bytes, relative_path, language_label, result, visited=None):
     if visited is None:
         visited = set()
 
@@ -98,12 +102,36 @@ def _collect_functions(node, source_bytes, filename, language_label, result, vis
     if node.type in FUNCTION_NODE_TYPES:
         name       = _extract_function_name(node, source_bytes)
         code       = _node_text(node, source_bytes)
-        calls      = _collect_calls(node, source_bytes)
         start_line = node.start_point[0] + 1
         end_line   = node.end_point[0]   + 1
 
+        # ── Garbage filter ────────────────────────────────────────────────────
+        # Skip one-liners and tiny anonymous callbacks — they are noise,
+        # not meaningful code chunks for RAG retrieval.
+        #
+        # Rule 1: skip anything shorter than 30 characters
+        if len(code.strip()) < 30:
+            for child in node.children:
+                _collect_functions(child, source_bytes, relative_path, language_label, result, visited)
+            return
+
+        # Rule 2: skip single-line anonymous functions (inline callbacks)
+        if name == "<anonymous>" and "\n" not in code:
+            for child in node.children:
+                _collect_functions(child, source_bytes, relative_path, language_label, result, visited)
+            return
+
+        # Rule 3: skip anonymous functions shorter than 3 lines
+        if name == "<anonymous>" and code.count("\n") < 3:
+            for child in node.children:
+                _collect_functions(child, source_bytes, relative_path, language_label, result, visited)
+            return
+        # ─────────────────────────────────────────────────────────────────────
+
+        calls = _collect_calls(node, source_bytes)
+
         result.append({
-            "file":          filename,
+            "file":          relative_path,   # ← full relative path, not just basename
             "language":      language_label,
             "function_name": name,
             "calls":         calls,
@@ -113,15 +141,19 @@ def _collect_functions(node, source_bytes, filename, language_label, result, vis
         })
 
     for child in node.children:
-        _collect_functions(child, source_bytes, filename, language_label, result, visited)
+        _collect_functions(child, source_bytes, relative_path, language_label, result, visited)
 
 
 def parse_js_ts_files(directory):
     SUPPORTED_EXTS = {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
-    parsed_data = []
+    parsed_data    = []
 
     for root, dirs, files in os.walk(directory):
-        dirs[:] = [d for d in dirs if d not in ("node_modules", "dist", ".next", "build", ".git")]
+        # Skip folders that are never user code
+        dirs[:] = [
+            d for d in dirs
+            if d not in ("node_modules", "dist", ".next", "build", ".git", "__pycache__")
+        ]
 
         for filename in files:
             ext = os.path.splitext(filename)[1].lower()
@@ -130,6 +162,9 @@ def parse_js_ts_files(directory):
 
             file_path      = os.path.join(root, filename)
             language_label = "typescript" if ext in (".ts", ".tsx") else "javascript"
+
+            # ── FIX: store relative path, not just basename ───────────────────
+            relative_path = os.path.relpath(file_path, directory)
 
             try:
                 with open(file_path, "r", encoding="utf-8", errors="replace") as f:
@@ -143,7 +178,7 @@ def parse_js_ts_files(directory):
                 _collect_functions(
                     tree.root_node,
                     source_bytes,
-                    filename,
+                    relative_path,   # ← was: filename (basename only)
                     language_label,
                     parsed_data,
                 )

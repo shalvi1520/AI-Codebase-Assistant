@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { uploadCodebase, queryCodebase, getFileContent, clearSessionHistory } from "@/services/api";
+import { uploadCodebase, uploadFromGit, getCommitLog, queryCodebase, getFileContent, clearSessionHistory } from "@/services/api";
 import DependencyGraph from "../components/DependencyGraph";
 
 /* ══════════════════════════════════════════════════════════════
@@ -872,50 +872,62 @@ function Sidebar({ items, active, onLoad }: { items: Repo[]; active: Repo|null; 
 ══════════════════════════════════════════════════════════════ */
 function Hero({ activeRepo, onUpload }: { activeRepo: Repo|null; onUpload: (info:Omit<Repo,"id">)=>void }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [drag,  setDrag]  = useState(false);
-  const [stage, setStage] = useState<"idle"|"uploading"|"done">("idle");
-  const [prog,  setProg]  = useState(0);
-  const [fname, setFname] = useState("");
-  const [sLabel,setSLabel]= useState("");
-  const LABELS = ["Extracting files…","Parsing functions…","Building embeddings…","Indexing vectors…"];
+  const [drag,      setDrag]      = useState(false);
+  const [stage,     setStage]     = useState<"idle"|"uploading"|"done">("idle");
+  const [prog,      setProg]      = useState(0);
+  const [fname,     setFname]     = useState("");
+  const [sLabel,    setSLabel]    = useState("");
+  const [tab,       setTab]       = useState<"zip"|"git">("zip");
+  const [gitUrl,    setGitUrl]    = useState("");
+  const [gitError,  setGitError]  = useState("");
+  const [commitLog, setCommitLog] = useState<any[]>([]);
 
+  // ── ZIP upload ──────────────────────────────────────────────────────────
   const handleFile = useCallback(async (file?: File) => {
-  if (!file || !file.name.endsWith(".zip")) return;
+    if (!file || !file.name.endsWith(".zip")) return;
+    try {
+      setFname(file.name);
+      setStage("uploading");
+      setProg(10);
+      setSLabel("Uploading ZIP...");
+      const result = await uploadCodebase(file);
+      setProg(60); setSLabel("Indexing codebase...");
+      setProg(100); setSLabel("Complete!");
+      setStage("done");
+      await new Promise((r) => setTimeout(r, 700));
+      onUpload({ name: file.name, files: result.vectors_stored || 0, fns: result.functions_found || 0, ts: Date.now() });
+      setStage("idle"); setProg(0);
+    } catch (err) {
+      console.error("Upload error:", err);
+      setStage("idle");
+    }
+  }, [onUpload]);
 
-  try {
-    setFname(file.name);
-    setStage("uploading");
-    setProg(10);
-    setSLabel("Uploading ZIP...");
-
-    // call backend
-    const result = await uploadCodebase(file);
-
-    setProg(60);
-    setSLabel("Indexing codebase...");
-
-    setProg(100);
-    setSLabel("Complete!");
-
-    setStage("done");
-
-    await new Promise((r) => setTimeout(r, 700));
-
-    onUpload({
-      name: file.name,
-      files: result.vectors_stored || 0,
-      fns: result.functions_found || 0,
-      ts: Date.now(),
-    });
-
-    setStage("idle");
-    setProg(0);
-
-  } catch (err) {
-    console.error("Upload error:", err);
-    setStage("idle");
-  }
-}, [onUpload]);
+  // ── Git URL clone ───────────────────────────────────────────────────────
+  const handleGitClone = useCallback(async () => {
+    if (!gitUrl.trim()) { setGitError("Please enter a Git URL"); return; }
+    if (!gitUrl.startsWith("http")) { setGitError("URL must start with https://"); return; }
+    setGitError("");
+    const repoName = gitUrl.trim().split("/").pop()?.replace(".git","") || "repo";
+    try {
+      setFname(repoName);
+      setStage("uploading");
+      setProg(5);  setSLabel("Cloning repository...");
+      const result = await uploadFromGit(gitUrl.trim(), repoName);
+      setProg(50); setSLabel("Parsing and embedding...");
+      setProg(90); setSLabel("Building dependency graph...");
+      setProg(100); setSLabel("Complete!");
+      setStage("done");
+      setCommitLog(result.commit_log || []);
+      await new Promise((r) => setTimeout(r, 700));
+      onUpload({ name: repoName, files: result.vectors_stored || 0, fns: result.functions_found || 0, ts: Date.now() });
+      setStage("idle"); setProg(0);
+    } catch (err: any) {
+      console.error("Git clone error:", err);
+      setGitError(err?.response?.data?.detail || "Clone failed — check the URL and try again");
+      setStage("idle");
+    }
+  }, [gitUrl, onUpload]);
 
   return (
     <div style={{flex:1,overflowY:"auto",overflowX:"hidden",position:"relative"}}>
@@ -1007,57 +1019,154 @@ function Hero({ activeRepo, onUpload }: { activeRepo: Repo|null; onUpload: (info
             onChange={e=>handleFile(e.target.files?.[0])}/>
 
           {stage==="idle" && (
-            <div
-              onClick={()=>inputRef.current?.click()}
-              onDragOver={e=>{e.preventDefault();setDrag(true);}}
-              onDragLeave={()=>setDrag(false)}
-              onDrop={e=>{e.preventDefault();setDrag(false);handleFile(e.dataTransfer.files?.[0]);}}
-              style={{border:`2px dashed ${drag?"#7c5cfc":"rgba(124,92,252,.28)"}`,
-                borderRadius:22,padding:"50px 36px",textAlign:"center",cursor:"pointer",
-                transition:"all .2s",
-                background:drag?"rgba(124,92,252,.08)":"linear-gradient(135deg,rgba(124,92,252,.04),rgba(6,182,212,.02))",
-                animation:drag?"borderDash 1s ease infinite":"none",
-                position:"relative",overflow:"hidden"}}>
-              {/* Corner brackets */}
-              <div style={{position:"absolute",top:14,left:14,width:18,height:18,
-                borderTop:"2px solid rgba(124,92,252,.5)",borderLeft:"2px solid rgba(124,92,252,.5)",borderRadius:"4px 0 0 0"}}/>
-              <div style={{position:"absolute",top:14,right:14,width:18,height:18,
-                borderTop:"2px solid rgba(124,92,252,.5)",borderRight:"2px solid rgba(124,92,252,.5)",borderRadius:"0 4px 0 0"}}/>
-              <div style={{position:"absolute",bottom:14,left:14,width:18,height:18,
-                borderBottom:"2px solid rgba(124,92,252,.5)",borderLeft:"2px solid rgba(124,92,252,.5)",borderRadius:"0 0 0 4px"}}/>
-              <div style={{position:"absolute",bottom:14,right:14,width:18,height:18,
-                borderBottom:"2px solid rgba(124,92,252,.5)",borderRight:"2px solid rgba(124,92,252,.5)",borderRadius:"0 0 4px 0"}}/>
-
-              <div style={{position:"relative",display:"inline-flex",alignItems:"center",
-                justifyContent:"center",marginBottom:24}}>
-                <div style={{width:76,height:76,borderRadius:"50%",
-                  background:"linear-gradient(135deg,rgba(124,92,252,.28),rgba(81,56,212,.18))",
-                  border:"1px solid rgba(124,92,252,.35)",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  animation:drag?"glow 1s ease infinite":"float 4s ease infinite",
-                  boxShadow:"0 0 30px rgba(124,92,252,.2)"}}>
-                  <Ic d={P.Upload} s={30} col={drag?"#c4b5fd":"#9b7ffe"}/>
-                </div>
-                {drag && [1,2].map(i=>(
-                  <div key={i} style={{position:"absolute",inset:`-${i*13}px`,borderRadius:"50%",
-                    border:"1px solid rgba(124,92,252,.2)",
-                    animation:`ringExp ${.9+i*.4}s ease ${i*.25}s infinite`}}/>
+            <>
+              {/* Tab switcher */}
+              <div style={{display:"flex",marginBottom:0,background:"var(--card)",
+                border:"1px solid var(--edgeM)",borderRadius:"16px 16px 0 0",overflow:"hidden"}}>
+                {(["zip","git"] as const).map(t=>(
+                  <button key={t} onClick={()=>{setTab(t);setGitError("");}}
+                    style={{flex:1,padding:"12px",border:"none",cursor:"pointer",
+                      fontFamily:"var(--ui)",fontSize:13,fontWeight:700,transition:"all .15s",
+                      background:tab===t?"var(--raised)":"transparent",
+                      color:tab===t?"var(--t1)":"var(--t3)",
+                      borderBottom:tab===t?"2px solid var(--vi)":"2px solid transparent"}}>
+                    {t==="zip" ? "📦  ZIP Archive" : "🔗  Git URL"}
+                  </button>
                 ))}
               </div>
-              <div style={{fontSize:22,fontWeight:800,color:"var(--t1)",marginBottom:10,letterSpacing:"-.03em"}}>
-                {drag?"Release to upload":"Drop your ZIP file here"}
-              </div>
-              <div style={{fontSize:14,color:"var(--t3)",marginBottom:22}}>
-                or <span style={{color:"#9b7ffe",textDecoration:"underline",textUnderlineOffset:3,cursor:"pointer"}}>browse files</span> on your computer
-              </div>
-              <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"5px 16px",
-                borderRadius:99,background:"var(--layer)",border:"1px solid var(--edgeM)"}}>
-                <span style={{fontSize:11,color:"var(--t4)",fontFamily:"var(--mono)"}}>
-                  .zip archives only · any size
-                </span>
-              </div>
-            </div>
-          )}
+
+              {/* ZIP tab */}
+              {tab==="zip" && (
+                <div
+                  onClick={()=>inputRef.current?.click()}
+                  onDragOver={e=>{e.preventDefault();setDrag(true);}}
+                  onDragLeave={()=>setDrag(false)}
+                  onDrop={e=>{e.preventDefault();setDrag(false);handleFile(e.dataTransfer.files?.[0]);}}
+                  style={{border:`2px dashed ${drag?"#7c5cfc":"rgba(124,92,252,.28)"}`,
+                    borderTop:"none",borderRadius:"0 0 22px 22px",padding:"44px 36px",
+                    textAlign:"center",cursor:"pointer",transition:"all .2s",
+                    background:drag?"rgba(124,92,252,.08)":"linear-gradient(135deg,rgba(124,92,252,.04),rgba(6,182,212,.02))",
+                    animation:drag?"borderDash 1s ease infinite":"none",
+                    position:"relative",overflow:"hidden"}}>
+                  <div style={{position:"relative",display:"inline-flex",alignItems:"center",
+                    justifyContent:"center",marginBottom:20}}>
+                    <div style={{width:70,height:70,borderRadius:"50%",
+                      background:"linear-gradient(135deg,rgba(124,92,252,.28),rgba(81,56,212,.18))",
+                      border:"1px solid rgba(124,92,252,.35)",
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      animation:drag?"glow 1s ease infinite":"float 4s ease infinite",
+                      boxShadow:"0 0 30px rgba(124,92,252,.2)"}}>
+                      <Ic d={P.Upload} s={28} col={drag?"#c4b5fd":"#9b7ffe"}/>
+                    </div>
+                  </div>
+                  <div style={{fontSize:20,fontWeight:800,color:"var(--t1)",marginBottom:8,letterSpacing:"-.03em"}}>
+                    {drag?"Release to upload":"Drop your ZIP file here"}
+                  </div>
+                  <div style={{fontSize:13.5,color:"var(--t3)",marginBottom:18}}>
+                    or <span style={{color:"#9b7ffe",textDecoration:"underline",textUnderlineOffset:3}}>browse files</span> on your computer
+                  </div>
+                  <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"5px 16px",
+                    borderRadius:99,background:"var(--layer)",border:"1px solid var(--edgeM)"}}>
+                    <span style={{fontSize:11,color:"var(--t4)",fontFamily:"var(--mono)"}}>
+                      .zip archives only · any size
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Git URL tab */}
+              {tab==="git" && (
+                <div style={{background:"linear-gradient(135deg,rgba(124,92,252,.04),rgba(6,182,212,.02))",
+                  border:"1px solid rgba(124,92,252,.28)",borderTop:"none",
+                  borderRadius:"0 0 22px 22px",padding:"36px 32px"}}>
+                  <div style={{display:"flex",justifyContent:"center",marginBottom:20}}>
+                    <div style={{width:64,height:64,borderRadius:"50%",
+                      background:"linear-gradient(135deg,rgba(6,182,212,.2),rgba(59,130,246,.12))",
+                      border:"1px solid rgba(6,182,212,.3)",
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      animation:"float 4s ease infinite",boxShadow:"0 0 24px rgba(6,182,212,.15)"}}>
+                      <Ic d={P.Term} s={26} col="#06b6d4"/>
+                    </div>
+                  </div>
+                  <div style={{fontSize:18,fontWeight:800,color:"var(--t1)",textAlign:"center",
+                    marginBottom:6,letterSpacing:"-.03em"}}>Clone from GitHub / GitLab</div>
+                  <div style={{fontSize:13,color:"var(--t3)",textAlign:"center",marginBottom:24}}>
+                    Paste any public repo URL. We'll clone it and index every function with git blame metadata.
+                  </div>
+                  <div style={{display:"flex",gap:8,marginBottom:10}}>
+                    <input
+                      value={gitUrl}
+                      onChange={e=>{setGitUrl(e.target.value);setGitError("");}}
+                      onKeyDown={e=>e.key==="Enter"&&handleGitClone()}
+                      placeholder="https://github.com/owner/repository"
+                      style={{flex:1,padding:"11px 14px",background:"var(--layer)",
+                        border:`1px solid ${gitError?"rgba(239,68,68,.5)":"rgba(124,92,252,.3)"}`,
+                        borderRadius:"var(--r2)",color:"var(--t1)",fontSize:13,
+                        fontFamily:"var(--mono)",outline:"none",transition:"border .2s"}}
+                      onFocus={e=>{(e.target as HTMLInputElement).style.borderColor="rgba(124,92,252,.6)";}}
+                      onBlur={e=>{(e.target as HTMLInputElement).style.borderColor=gitError?"rgba(239,68,68,.5)":"rgba(124,92,252,.3)";}}
+                    />
+                    <button onClick={handleGitClone}
+                      disabled={!gitUrl.trim()}
+                      style={{padding:"11px 22px",borderRadius:"var(--r2)",
+                        background:gitUrl.trim()?"linear-gradient(135deg,#06b6d4,#3b82f6)":"var(--raised)",
+                        border:"none",color:"white",fontFamily:"var(--ui)",fontSize:13,
+                        fontWeight:700,cursor:gitUrl.trim()?"pointer":"default",
+                        opacity:gitUrl.trim()?1:0.4,transition:"all .2s",
+                        boxShadow:gitUrl.trim()?"0 0 18px rgba(6,182,212,.3)":"none"}}>
+                      Clone
+                    </button>
+                  </div>
+                  {gitError && (
+                    <div style={{fontSize:11.5,color:"var(--red)",fontFamily:"var(--mono)",
+                      marginBottom:12,padding:"7px 12px",background:"rgba(239,68,68,.08)",
+                      borderRadius:"var(--r1)",border:"1px solid rgba(239,68,68,.2)"}}>
+                      {gitError}
+                    </div>
+                  )}
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:14,justifyContent:"center"}}>
+                    {["Blame per function","Commit history","Author metadata","All languages"].map(tag=>(
+                      <div key={tag} style={{display:"flex",alignItems:"center",gap:5,padding:"4px 11px",
+                        borderRadius:99,fontSize:10.5,fontFamily:"var(--mono)",
+                        background:"rgba(6,182,212,.07)",border:"1px solid rgba(6,182,212,.2)",color:"#06b6d4"}}>
+                        <div style={{width:5,height:5,borderRadius:"50%",background:"#06b6d4"}}/>
+                        {tag}
+                      </div>
+                    ))}
+                  </div>
+                  {commitLog.length > 0 && (
+                    <div style={{marginTop:22,borderTop:"1px solid var(--edge)",paddingTop:16}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"var(--t3)",
+                        fontFamily:"var(--mono)",letterSpacing:".06em",marginBottom:10}}>
+                        RECENT COMMITS
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:200,overflowY:"auto"}}>
+                        {commitLog.slice(0,8).map((c:any,i:number)=>(
+                          <div key={i} style={{display:"flex",alignItems:"flex-start",gap:10,
+                            padding:"7px 10px",borderRadius:"var(--r1)",background:"var(--layer)",
+                            border:"1px solid var(--edge)"}}>
+                            <code style={{fontSize:10,color:"#7c5cfc",fontFamily:"var(--mono)",
+                              flexShrink:0,marginTop:1}}>{c.sha}</code>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:11.5,color:"var(--t1)",fontWeight:600,
+                                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                {c.message}
+                              </div>
+                              <div style={{fontSize:10,color:"var(--t4)",fontFamily:"var(--mono)",marginTop:1}}>
+                                {c.author} · {c.date}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}  
+
+
 
           {stage==="uploading" && (
             <div className="glass-md" style={{borderRadius:22,padding:"44px 36px",
@@ -1076,7 +1185,8 @@ function Hero({ activeRepo, onUpload }: { activeRepo: Repo|null; onUpload: (info
                 </div>
               </div>
               <div style={{fontSize:18,fontWeight:700,color:"var(--t1)",marginBottom:5,letterSpacing:"-.02em"}}>
-                Indexing <span style={{color:"#9b7ffe"}}>{fname}</span>
+                {tab==="git" ? "Cloning " : "Indexing "}<span style={{color:"#9b7ffe"}}>{fname}</span>
+                
               </div>
               <div style={{fontSize:12.5,color:"var(--t3)",marginBottom:24,
                 fontFamily:"var(--mono)",minHeight:18}}>{sLabel}</div>
@@ -1089,8 +1199,12 @@ function Hero({ activeRepo, onUpload }: { activeRepo: Repo|null; onUpload: (info
               <div style={{fontSize:11,color:"var(--t4)",fontFamily:"var(--mono)",
                 textAlign:"right",maxWidth:440,margin:"0 auto 22px"}}>{Math.round(prog)}%</div>
               <div style={{display:"flex",justifyContent:"center",gap:7,flexWrap:"wrap"}}>
-                {["Extract","Parse","Embed","Index"].map((l,i)=>{
-                  const done=prog>=[20,50,75,95][i];
+                {(tab==="git"
+                  ? ["Clone","Parse","Blame","Embed","Index"]
+                  : ["Extract","Parse","Embed","Index"]
+                ).map((l,i)=>{
+                  const thresholds = tab==="git" ? [10,35,55,80,95] : [20,50,75,95];
+                  const done = prog >= thresholds[i];  
                   return (
                     <div key={l} style={{display:"flex",alignItems:"center",gap:5,
                       padding:"4px 12px",borderRadius:99,fontSize:10.5,fontFamily:"var(--mono)",

@@ -18,18 +18,10 @@ def get_paths(repo_name):
 def add_embeddings(repo_name, embeddings, metadata):
 
     index_path, meta_path = get_paths(repo_name)
+    index = faiss.IndexFlatL2(DIMENSION)
+    metadata_store= []
 
-    # Load existing index if it exists
-    if os.path.exists(index_path):
-        index = faiss.read_index(index_path)
-    else:
-        index = faiss.IndexFlatL2(DIMENSION)
 
-    if os.path.exists(meta_path):
-        with open(meta_path, "rb") as f:
-            metadata_store = pickle.load(f)
-    else:
-        metadata_store = []
 
     vectors = np.array(embeddings).astype("float32")
 
