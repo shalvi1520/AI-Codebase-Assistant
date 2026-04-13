@@ -33,11 +33,8 @@ export const uploadCodebase = async (file: File) => {
 
 
 /*
- * Upload from Git URL  (NEW)
+ * Upload from Git URL
  * Calls FastAPI POST /upload-git
- *
- * git_url  — e.g. "https://github.com/owner/repo"
- * repoName — optional override; backend infers from URL if empty
  */
 export const uploadFromGit = async (
   gitUrl: string,
@@ -58,9 +55,8 @@ export const uploadFromGit = async (
 
 
 /*
- * Get commit log for a cloned repo  (NEW)
+ * Get commit log for a cloned repo
  * Calls FastAPI GET /commit-log?repo_name=...
- * Returns [] for ZIP-uploaded repos (no git history).
  */
 export const getCommitLog = async (repoName: string) => {
   try {
@@ -68,7 +64,7 @@ export const getCommitLog = async (repoName: string) => {
       params: { repo_name: repoName },
     });
 
-    return response.data; // { repo_name, commits: [...] }
+    return response.data;
   } catch (error: any) {
     console.error("Commit log fetch failed:", error);
     throw error;
@@ -165,6 +161,29 @@ export const getSessionHistory = async (sessionId: string) => {
     return response.data;
   } catch (error: any) {
     console.error("Session history fetch failed:", error);
+    throw error;
+  }
+};
+
+
+/*
+ * Get complexity heatmap data for a repo  ← NEW
+ * Calls FastAPI GET /heatmap?repo_name=...
+ *
+ * Returns:
+ *   functions  — per-function list with complexity score + risk + file + lines
+ *   by_file    — per-file aggregation (avg, max, count)
+ *   summary    — totals: low/medium/high/critical counts, avg, max, worst fn/file
+ */
+export const getHeatmap = async (repoName: string) => {
+  try {
+    const response = await client.get("/heatmap", {
+      params: { repo_name: repoName },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Heatmap fetch failed:", error);
     throw error;
   }
 };

@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { uploadCodebase, uploadFromGit, getCommitLog, queryCodebase, getFileContent, clearSessionHistory } from "@/services/api";
 import DependencyGraph from "../components/DependencyGraph";
+import Heatmap from "../components/Heatmap";
 
 /* ══════════════════════════════════════════════════════════════
    GLOBAL STYLES
@@ -457,7 +458,7 @@ function ChatWidget({
   activeRepo: Repo | null
   onViewCode: (f: string, start?:number, end?:number) => void
   setGraphData: (data:any)=>void
-  setRightPanel: (panel: "chat" | "code" | "graph" | null) => void
+  setRightPanel: (panel: "chat" | "code" | "graph" | "heatmap" | null) => void
   sessionId: string
 }) {
   const [open, setOpen]   = useState(false);
@@ -870,7 +871,7 @@ function Sidebar({ items, active, onLoad }: { items: Repo[]; active: Repo|null; 
 /* ══════════════════════════════════════════════════════════════
    HERO
 ══════════════════════════════════════════════════════════════ */
-function Hero({ activeRepo, onUpload }: { activeRepo: Repo|null; onUpload: (info:Omit<Repo,"id">)=>void }) {
+function Hero({ activeRepo, onUpload, onOpenHeatMap }: { activeRepo: Repo|null; onUpload: (info:Omit<Repo,"id">)=>void; onOpenHeatMap: ()=> void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag,      setDrag]      = useState(false);
   const [stage,     setStage]     = useState<"idle"|"uploading"|"done">("idle");
@@ -976,9 +977,21 @@ function Hero({ activeRepo, onUpload }: { activeRepo: Repo|null; onUpload: (info
               <div style={{width:7,height:7,borderRadius:"50%",background:"var(--green)",
                 animation:"pulse 2s infinite",boxShadow:"0 0 7px var(--green)"}}/>
               <span style={{fontSize:12.5,color:"var(--green)",fontWeight:700}}>Active: {activeRepo.name}</span>
-              <span style={{marginLeft:"auto",fontSize:11,color:"rgba(16,185,129,.55)"}}>
+              <span style={{fontSize:11,color:"rgba(16,185,129,.55)"}}>
                 {activeRepo.files} files · {activeRepo.fns} functions
               </span>
+              <button onClick={()=>onOpenHeatMap()}
+                style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5,
+                  padding:"4px 12px",borderRadius:99,border:"none",cursor:"pointer",
+                  background:"rgba(239,68,68,.1)",color:"#ef8644",
+                  fontFamily:"var(--ui)",fontSize:11,fontWeight:700,
+                  transition:"all .15s"}}
+                onMouseEnter={e=>{(e.currentTarget as HTMLButtonElement).style.background="rgba(239,68,68,.18)";}}
+                onMouseLeave={e=>{(e.currentTarget as HTMLButtonElement).style.background="rgba(239,68,68,.1)";}}>
+                🔥 Heatmap
+              </button>
+
+
             </div>
           </div>
         )}
@@ -1278,7 +1291,7 @@ export default function Home() {
   const [highlight, setHighlight] = useState<{ start: number; end: number } | null>(null);
   const [graphData, setGraphData] = useState<any>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [rightPanel, setRightPanel] = useState<"chat" | "code" | "graph" | null>(null);
+  const [rightPanel, setRightPanel] = useState<"chat" | "code" | "graph" |"heatmap" | null>(null);
   const [sessionId, setSessionId] = useState<string>("");
 
   useEffect(() => {
@@ -1330,7 +1343,7 @@ export default function Home() {
 
         <div style={{ flex: 1, display: "flex" }}>
           <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-            <Hero activeRepo={activeRepo} onUpload={handleUpload} />
+            <Hero activeRepo={activeRepo} onUpload={handleUpload} onOpenHeatMap={()=>setRightPanel("heatmap")} />
           </div>
 
           {rightPanel && (
@@ -1382,6 +1395,17 @@ export default function Home() {
                 {rightPanel === "graph" && graphData && (
                   <DependencyGraph graph={graphData} />
                 )}
+                {rightPanel === "heatmap" && activeRepo && (
+                  <Heatmap
+                    repoName={activeRepo.name.replace(".zip", "")}
+                    onViewCode={(file, start, end) => {
+                      setCodeFile(file);
+                      setHighlight({ start, end });
+                      setRightPanel("code");
+                    }}
+                  />
+                )}
+
               </div>
             </div>
           )}

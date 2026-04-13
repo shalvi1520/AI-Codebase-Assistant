@@ -36,7 +36,7 @@ os.makedirs(REPO_INFO_DIR, exist_ok=True)
 def _build_path_maps(repo_path: str) -> tuple:
     """
     Walk the git tree once and return two dicts:
-        relpath_set   : set of all relative paths known to git
+        relpath_set         : set of all relative paths known to git
         basename_to_relpath : basename -> relative path (last one wins for dups)
 
     Used so blame lookups work correctly whether the parsed item
@@ -58,14 +58,14 @@ def _build_path_maps(repo_path: str) -> tuple:
     return relpath_set, basename_to_relpath
 
 
-def _resolve_git_relpath(item_file: str, relpath_set: set, basename_to_relpath: dict) -> str | None:
+def _resolve_git_relpath(item_file: str, relpath_set: set, basename_to_relpath: dict):
     """
     Given the 'file' field from a parsed item (which is now a relative path
     like 'src/App.js' or just 'App.js'), find the matching git relative path
     so we can run git blame on it.
 
     Priority:
-      1. Direct match  — item_file is already a valid git relpath
+      1. Direct match   — item_file is already a valid git relpath
       2. Basename match — fall back to basename lookup
       3. None           — file not tracked by git (skip blame)
     """
@@ -125,13 +125,15 @@ async def upload_codebase(file: UploadFile = File(...)):
         embeddings.append(vector)
 
         metadata.append({
-            "file":          item["file"],
-            "language":      item.get("language", "unknown"),
-            "function_name": item["function_name"],
-            "calls":         item.get("calls", []),
-            "code":          item["code"],
-            "start_line":    item["start_line"],
-            "end_line":      item["end_line"],
+            "file":           item["file"],
+            "language":       item.get("language", "unknown"),
+            "function_name":  item["function_name"],
+            "calls":          item.get("calls", []),
+            "code":           item["code"],
+            "start_line":     item["start_line"],
+            "end_line":       item["end_line"],
+            "complexity":     item.get("complexity", 0),    # ← complexity score
+            "risk":           item.get("risk", "unknown"),  # ← risk label
             # No blame for ZIP uploads
             "author":         "",
             "author_email":   "",
@@ -198,9 +200,6 @@ async def upload_from_git(request: GitUploadRequest):
     parsed = parse_all_files(repo_path)
 
     # ── 5. Build git path maps for blame resolution ───────────────────────────
-    #
-    # Parsers now store relative paths (e.g. "src/App.js").
-    # We build two lookup structures so blame works for any path format.
     relpath_set, basename_to_relpath = _build_path_maps(repo_path)
 
     blame_cache: dict = {}   # git_relpath -> blame_map (computed once per file)
@@ -210,7 +209,7 @@ async def upload_from_git(request: GitUploadRequest):
     metadata   = []
 
     for item in parsed:
-        item_file = item["file"]   # now a relative path like "src/App.js"
+        item_file = item["file"]   # relative path like "src/App.js"
 
         # Resolve the git-relative path for this file
         git_rel = _resolve_git_relpath(item_file, relpath_set, basename_to_relpath)
@@ -249,6 +248,8 @@ async def upload_from_git(request: GitUploadRequest):
             "code":           item["code"],
             "start_line":     item["start_line"],
             "end_line":       item["end_line"],
+            "complexity":     item.get("complexity", 0),    # ← complexity score
+            "risk":           item.get("risk", "unknown"),  # ← risk label
             # Blame fields
             "author":         blame_entry.get("author", ""),
             "author_email":   blame_entry.get("email", ""),
