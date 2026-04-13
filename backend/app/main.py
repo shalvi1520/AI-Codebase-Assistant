@@ -5,6 +5,8 @@ from app.api.upload import router as upload_router
 from app.api.query import router as query_router
 from app.utils.helpers import get_commit_log, get_rich_repo_info
 from app.services.visualization import build_heatmap
+from app.api.docs import router as docs_router
+
 import os
 import json
 import pickle
@@ -35,6 +37,7 @@ app.add_middleware(
 app.include_router(upload_router, tags=["Upload"])
 app.include_router(query_router,  tags=["Query"])
 app.include_router(file_router)
+app.include_router(docs_router)
 
 
 @app.get("/")
