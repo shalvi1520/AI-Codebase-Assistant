@@ -10,7 +10,7 @@
 
 ### `main` ⚪ complexity: 0
 
-**Purpose:** The main function orchestrates data processing and analysis by calling the processData and analyzeData functions, then logging the final result.
+**Purpose:** The main function orchestrates data processing and analysis, logging the final result to the console.
 
 **Parameters:** None
 
@@ -18,7 +18,7 @@
 
 **Side Effects:** Writes to the console.
 
-**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a simple, linear flow of execution. However, this does not necessarily imply low risk, as the complexity of the called functions (processData and analyzeData) is not considered.
+**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a simple and linear flow of execution. However, this does not necessarily imply low risk, as the complexity of the functions it calls (processData and analyzeData) may be higher.
 
 **Example Usage:**
 ```javascript
@@ -33,22 +33,22 @@ main();
 
 ### `processData` ⚪ complexity: 0
 
-**Purpose:** Processes input data by doubling each value and normalizing the result.
+**Purpose:** Processes input data by doubling its values and normalizing the result.
 
 **Parameters:**
 - `data` (array): Input data to be processed.
 
-**Returns:** Normalized data array.
+**Returns:** Normalized array of processed data.
 
 **Side Effects:** None.
 
-**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a simple and predictable code path. However, this may not necessarily reflect the complexity of the `normalizeData` function it calls, which is not shown here.
+**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a simple and predictable code structure. However, this does not necessarily imply low risk; further analysis may be required to ensure the function's correctness and maintainability.
 
 **Example Usage:**
 ```javascript
-const data = [1, 2, 3];
+const data = [1, 2, 3, 4, 5];
 const result = processData(data);
-console.log(result); // Output: normalized data array
+console.log(result); // Output: [2, 4, 6, 8, 10]
 ```
 
 
@@ -68,11 +68,12 @@ console.log(result); // Output: normalized data array
 
 **Side Effects:** None.
 
-**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a simple, linear flow of control. However, it relies on external functions (`computeMean` and `computeVariance`), which may introduce additional complexity. This should be considered when testing and maintaining the function.
+**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a simple and straightforward implementation. However, this may not necessarily indicate low risk, as the functions it calls (computeMean and computeVariance) may have their own complexity.
 
 **Example Usage:**
 ```javascript
-const result = analyzeData([1, 2, 3, 4, 5]);
+const data = [1, 2, 3, 4, 5];
+const result = analyzeData(data);
 console.log(result); // Output: { mean: 3, variance: 2.5 }
 ```
 
@@ -87,13 +88,13 @@ console.log(result); // Output: { mean: 3, variance: 2.5 }
 **Purpose:** Normalizes an array of numbers by dividing each value by the total sum of the array.
 
 **Parameters:**
-- `data` (Array<number>): The input array of numbers to be normalized.
+- `data` (array): The input array of numbers to be normalized.
 
-**Returns:** An array of normalized numbers.
+**Returns:** A new array with the same length as the input, where each value is the corresponding input value divided by the total sum of the input array.
 
 **Side Effects:** None.
 
-**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a very simple and predictable code path. This low complexity score reduces the risk of bugs and makes the function easier to test and maintain.
+**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a very simple and low-risk function. However, this does not necessarily mean it is immune to bugs or edge cases, and thorough testing is still recommended.
 
 **Example Usage:**
 ```javascript
@@ -105,16 +106,16 @@ console.log(normalizedData); // Output: [0.06666666666666667, 0.1333333333333333
 
 ### `computeMean` ⚪ complexity: 0
 
-**Purpose:** Calculates the mean (average) of a given array of numbers.
+**Purpose:** Calculates the mean of a given array of numbers.
 
 **Parameters:**
-- `data` (Array<number>): The input array of numbers for which to compute the mean.
+- `data` (array): The input array of numbers for which to compute the mean.
 
-**Returns:** The computed mean value.
+**Returns:** The calculated mean of the input array.
 
 **Side Effects:** None.
 
-**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a simple and straightforward implementation. However, this does not necessarily imply low risk, and thorough testing is still recommended.
+**Complexity Note:** This function has a cyclomatic complexity of 0, indicating that it is a simple, linear function with no conditional statements or loops. This low complexity score suggests that the function is easy to test and maintain.
 
 **Example Usage:**
 ```javascript
@@ -126,17 +127,17 @@ console.log(mean); // Output: 3
 
 ### `computeVariance` ⚪ complexity: 0
 
-**Purpose:** Calculates the variance of a given dataset.
+**Purpose:** Computes the variance of a given dataset.
 
 **Parameters:**
 - `data` (array): The input dataset for which to compute the variance.
-- `mean` (number): The mean of the dataset, which is required for variance calculation.
+- `mean` (number): The mean of the dataset, which is required for variance computation.
 
 **Returns:** The variance of the dataset.
 
 **Side Effects:** None.
 
-**Complexity Note:** This function has a cyclomatic complexity of 0, indicating a simple and low-risk implementation. However, this may not accurately reflect the risk of the function, and additional testing and review are recommended.
+**Complexity Note:** The cyclomatic complexity score of 0 indicates that this function has a simple, linear structure with no conditional statements or loops. This makes it relatively easy to test and maintain.
 
 **Example Usage:**
 ```javascript
